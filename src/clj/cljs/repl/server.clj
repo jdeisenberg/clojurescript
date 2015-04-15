@@ -7,6 +7,16 @@
 
 (def ^:dynamic state nil)
 
+(def encoding-info {"text/html" "UTF-8"
+                    "text/css" "UTF-8"
+                    "image/jpeg" "ISO-8859-1"
+                    "text/javascript" "UTF-8"
+                    "text/x-clojure" "UTF-8"
+                    "application/json" "UTF-8"
+                    "image/png" "ISO-8859-1"
+                    "image/gif" "ISO-8859-1"
+                    "image/svg+xml" "UTF-8"})
+
 (defn connection
   "Promise to return a connection when one is available. If a
   connection is not available, store the promise in server/state."
@@ -108,20 +118,22 @@
   ([conn status form]
     (send-and-close conn status form "text/html"))
   ([conn status form content-type]
-    (let [utf-8-form (.getBytes form "UTF-8")
-          content-length (count utf-8-form)
+    (let [enc (encoding-info content-type)
+          encoding (if (nil? enc) "UTF-8" enc)
+          byte-form (.getBytes form encoding)
+          content-length (count byte-form)
           headers (map #(.getBytes (str % "\r\n"))
                     [(status-line status)
                      "Server: ClojureScript REPL"
                      (str "Content-Type: "
                        content-type
-                       "; charset=utf-8")
+                          (if (= encoding "UTF-8") "; charset=utf-8" ""))
                      (str "Content-Length: " content-length)
                      ""])]
       (with-open [os (.getOutputStream conn)]
         (doseq [header headers]
           (.write os header 0 (count header)))
-        (.write os utf-8-form 0 content-length)
+        (.write os byte-form 0 content-length)
         (.flush os)
         (.close conn)))))
 

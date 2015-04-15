@@ -24,6 +24,17 @@
 (def ^:dynamic ordering nil)
 (def ^:dynamic es nil)
 
+(def mime-info {".html" ["text/html" "UTF-8"]
+                ".css" ["text/css" "UTF-8"]
+                ".jpg" ["image/jpeg" "ISO-8859-1"]
+                ".js" ["text/javascript" "UTF-8"]
+                ".cljs" ["text/x-clojure" "UTF-8"]
+                ".cljc" ["text/x-clojure" "UTF-8"]
+                ".map" ["application/json" "UTF-8"]
+                ".png" ["image/png" "ISO-8859-1"]
+                ".gif" ["image/gif" "ISO-8859-1"]
+                ".svg" ["image/svg+xml" "UTF-8"]})
+
 (defn- set-return-value-fn
   "Save the return value function which will be called when the next
   return value is received."
@@ -66,6 +77,7 @@
   (if (and (:static-dir opts)
            (not= "/favicon.ico" path))
     (let [path   (if (= "/" path) "/index.html" path)
+          suffix (re-find #"\.[^.]+$" path)
           st-dir (:static-dir opts)
           local-path
           (cond->
@@ -83,18 +95,11 @@
               :else nil)
             local-path)]
       (if local-path
-        (server/send-and-close conn 200 (slurp local-path)
-          (condp #(.endsWith %2 %1) path
-            ".html" "text/html"
-            ".css" "text/css"
-            ".html" "text/html"
-            ".jpg" "image/jpeg"
-            ".js" "text/javascript"
-            ".cljs" "text/x-clojure"
-            ".cljc" "text/x-clojure"
-            ".map" "application/json"
-            ".png" "image/png"
-            "text/plain"))
+        (let [[mime enc] {mime-info suffix}
+              mimetype (if (nil? mime) "text/plain" mime)
+              encoding (if (nil? enc) "ISO-8859_1" enc)]
+        (server/send-and-close conn 200 (slurp local-path :encoding encoding)
+          mimetype))
         (server/send-404 conn path)))
     (server/send-404 conn path)))
 
