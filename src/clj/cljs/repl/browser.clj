@@ -95,7 +95,7 @@
               :else nil)
             local-path)]
       (if local-path
-        (let [[mime enc] {mime-info suffix}
+        (let [[mime enc] (mime-info suffix)
               mimetype (if (nil? mime) "text/plain" mime)
               encoding (if (nil? enc) "ISO-8859_1" enc)]
         (server/send-and-close conn 200 (slurp local-path :encoding encoding)
@@ -109,16 +109,12 @@
   send-repl-client-page)
 
 (server/dispatch-on :get
-  (fn [{:keys [path]} _ _]
-    (or
-      (= path "/")
-      (.endsWith path ".js")
-      (.endsWith path ".cljc")
-      (.endsWith path ".cljs")
-      (.endsWith path ".map")
-      (.endsWith path ".html")
-      (.endsWith path ".css")))
-  send-static)
+                    (fn [{:keys [path]} _ _]
+                      (let [suffix (re-find #"\.[^.]+$" path)]
+                        (or
+                          (= path "/")
+                          (not (nil? (mime-info suffix))))))
+                    send-static)
 
 (defmulti handle-post (fn [m _ _ ] (:type m)))
 
